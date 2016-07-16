@@ -221,15 +221,25 @@ class LoginViewController: UIViewController {
     }
     
     private func getUserID(sessionID: String) {
-        
+//        http://api.themoviedb.org/3/authentication/token/validate_with_login
         /* TASK: Get the user's ID, then store it (appDelegate.userID) for future use and go to next view! */
         
         /* 1. Set the parameters */
+        let mathodParameters = [
+            "api_key": Constants.TMDBParameterValues.ApiKey
+        ]
         /* 2/3. Build the URL, Configure the request */
+        let request = NSURLRequest(URL: appDelegate.tmdbURLFromParameters(mathodParameters, withPathExtension: "/authentication/token/validate_with_login"))
         /* 4. Make the request */
-        /* 5. Parse the data */
-        /* 6. Use the data! */
+        let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, rsponse, error) in
+            
+            /* 5. Parse the data */
+            
+            /* 6. Use the data! */
+            
+        }
         /* 7. Start the request */
+        task.resume()
     }
 }
 
