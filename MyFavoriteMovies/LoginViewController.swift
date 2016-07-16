@@ -94,12 +94,51 @@ class LoginViewController: UIViewController {
         
         /* 2/3. Build the URL, Configure the request */
         let request = NSURLRequest(URL: appDelegate.tmdbURLFromParameters(methodParameters, withPathExtension: "/authentication/token/new"))
-        
+        print("request", request)
         /* 4. Make the request */
         let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, response, error) in
             
-            /* 5. Parse the data */
+            // if an error occurs, print it and re-enable the UI
+            func displayError(error: String) {
+                print(error)
+                performUIUpdatesOnMain {
+                    self.setUIEnabled(true)
+                    self.debugTextLabel.text = "Login Failed (Request Token)."
+                }
+            }
+
+            guard error == nil else {
+                displayError("There was an error in your request: \(error)")
+                return
+            }
+            
+            guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode <= 299 else {
+                displayError("The response status returned was not 2xx!")
+                return
+            }
+               
+            guard let data = data else {
+                print("There was an error in the data returned")
+                return
+            }
+                
+                /* 5. Parse the data */
+            var parsedData: AnyObject!
+                
+            do {
+                parsedData = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
+            } catch {
+                displayError("Could not parse the JSON data returned from the API")
+            }
+            
+            guard let requestToken = parsedData["request_token"] as? String else {
+                displayError("There is not a key for a request token returned from the API: \(parsedData)")
+                self.debugTextLabel.text = "Your your request for an API token did not return a token :("
+                return
+            }
+            
             /* 6. Use the data! */
+            self.loginWithToken(requestToken)
         }
 
         /* 7. Start the request */
@@ -107,15 +146,66 @@ class LoginViewController: UIViewController {
     }
     
     private func loginWithToken(requestToken: String) {
-        
+//        http://api.themoviedb.org/3/authentication/token/validate_with_login
         /* TASK: Login, then get a session id */
-        
         /* 1. Set the parameters */
+        let parameters: [String: String!] = [
+            "api_key": Constants.TMDBParameterValues.ApiKey,
+            "request_token": requestToken,
+            "username": usernameTextField.text,
+            "password": passwordTextField.text
+        ]
+        
         /* 2/3. Build the URL, Configure the request */
+        let request = NSURLRequest(URL: appDelegate.tmdbURLFromParameters(parameters, withPathExtension: "/authentication/token/validate_with_login"))
+        
         /* 4. Make the request */
-        /* 5. Parse the data */
-        /* 6. Use the data! */
+        let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, response, error) in
+            
+            // if an error occurs, print it and re-enable the UI
+            func displayError(error: String) {
+                print(error)
+                performUIUpdatesOnMain {
+                    self.setUIEnabled(true)
+                    self.debugTextLabel.text = "Login Failed (Authenticate Token)."
+                }
+            }
+            
+            guard error == nil else {
+                displayError("There was an error in the request to authenicate th login token: \(error)")
+                return
+            }
+            
+            guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode <= 299 else {
+                displayError("Your request returned a status code of not 2xx!")
+                return
+            }
+            
+            guard let data = data else {
+                displayError("No data was returned with the request!")
+                return
+            }
+            
+            /* 5. Parse the data */
+            var parsedData: AnyObject!
+            do {
+                parsedData = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
+            } catch {
+                displayError("Could not parse the JSON data returned from the authentication stage of the login")
+                return
+            }
+            
+            /* 6. Use the data! */
+            guard let authSuccess = parsedData["success"] as? Bool where authSuccess == true else {
+                displayError("Authentication was rejected")
+                return
+            }
+            
+            print("auth success ready to get the session ID!", authSuccess)
+            
+        }
         /* 7. Start the request */
+        task.resume()
     }
     
     private func getSessionID(requestToken: String) {
