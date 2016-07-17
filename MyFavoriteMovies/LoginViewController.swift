@@ -113,10 +113,10 @@ class LoginViewController: UIViewController {
             }
             
             guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode <= 299 else {
-                displayError("The response status returned was not 2xx!")
+                displayError("Your request returned a status code other than 2xx!")
                 return
             }
-               
+            
             guard let data = data else {
                 print("There was an error in the data returned")
                 return
@@ -138,6 +138,7 @@ class LoginViewController: UIViewController {
             }
             
             /* 6. Use the data! */
+            self.appDelegate.requestToken = requestToken
             self.loginWithToken(requestToken)
         }
 
@@ -146,7 +147,6 @@ class LoginViewController: UIViewController {
     }
     
     private func loginWithToken(requestToken: String) {
-//        http://api.themoviedb.org/3/authentication/token/validate_with_login
         /* TASK: Login, then get a session id */
         /* 1. Set the parameters */
         let parameters: [String: String!] = [
@@ -177,7 +177,7 @@ class LoginViewController: UIViewController {
             }
             
             guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode <= 299 else {
-                displayError("Your request returned a status code of not 2xx!")
+                displayError("Your request returned a status code other than 2xx!")
                 return
             }
             
@@ -202,6 +202,7 @@ class LoginViewController: UIViewController {
             }
             
             print("auth success ready to get the session ID!", authSuccess)
+            self.getSessionID(requestToken)
             
         }
         /* 7. Start the request */
@@ -209,37 +210,88 @@ class LoginViewController: UIViewController {
     }
     
     private func getSessionID(requestToken: String) {
-        
         /* TASK: Get a session ID, then store it (appDelegate.sessionID) and get the user's id */
         
         /* 1. Set the parameters */
-        /* 2/3. Build the URL, Configure the request */
-        /* 4. Make the request */
-        /* 5. Parse the data */
-        /* 6. Use the data! */
-        /* 7. Start the request */
-    }
-    
-    private func getUserID(sessionID: String) {
-//        http://api.themoviedb.org/3/authentication/token/validate_with_login
-        /* TASK: Get the user's ID, then store it (appDelegate.userID) for future use and go to next view! */
-        
-        /* 1. Set the parameters */
         let mathodParameters = [
-            "api_key": Constants.TMDBParameterValues.ApiKey
+            "api_key": Constants.TMDBParameterValues.ApiKey,
+            "request_token": requestToken
         ]
+        
         /* 2/3. Build the URL, Configure the request */
-        let request = NSURLRequest(URL: appDelegate.tmdbURLFromParameters(mathodParameters, withPathExtension: "/authentication/token/validate_with_login"))
+        let request = NSURLRequest(URL: appDelegate.tmdbURLFromParameters(mathodParameters, withPathExtension: "/authentication/session/new"))
+        
         /* 4. Make the request */
-        let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, rsponse, error) in
+        let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, response, error) in
+            
+            // if an error occurs, print it and re-enable the UI
+            func displayError(error: String) {
+                print(error)
+                performUIUpdatesOnMain {
+                    self.setUIEnabled(true)
+                    self.debugTextLabel.text = "Login Failed (Session ID)."
+                }
+            }
+            
+            guard error == nil else {
+                displayError("There was an error in the request for the session ID")
+                return
+            }
+            print("data------?", data)
+            
+            guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode <= 299 else {
+                displayError("Your request returned a status code other than 2xx!")
+                return
+            }
+            
+            guard let data = data else {
+                displayError("There was no data returned from getting the session ID")
+                return
+            }
             
             /* 5. Parse the data */
+            var parsedData: AnyObject!
+            do {
+                parsedData = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
+            } catch {
+                displayError("Could not parse the JSON data returned from the authentication stage of the login")
+                return
+            }
+            
+            print("session JSON", parsedData)
             
             /* 6. Use the data! */
+            guard let sessionId = parsedData["session_id"] as? String else {
+                displayError("There was no session ID in the response")
+                return
+            }
+            
+            print("sessionID got", sessionId)
+            self.appDelegate.sessionID = sessionId
+            self.getUserID(sessionId)
             
         }
         /* 7. Start the request */
         task.resume()
+    }
+    
+    private func getUserID(sessionID: String) {
+        /* TASK: Get the user's ID, then store it (appDelegate.userID) for future use and go to next view! */
+
+        /* 1. Set the parameters */
+        
+        /* 2/3. Build the URL, Configure the request */
+
+        /* 4. Make the request */
+//        let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, rsponse, error) in
+        
+            /* 5. Parse the data */
+            
+            /* 6. Use the data! */
+            
+//        }
+        /* 7. Start the request */
+//        task.resume()
     }
 }
 
