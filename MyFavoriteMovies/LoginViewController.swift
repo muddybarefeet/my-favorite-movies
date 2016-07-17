@@ -201,7 +201,7 @@ class LoginViewController: UIViewController {
                 return
             }
             
-            print("auth success ready to get the session ID!", authSuccess)
+            print("auth success ready to get the session ID!")
             self.getSessionID(requestToken)
             
         }
@@ -237,7 +237,6 @@ class LoginViewController: UIViewController {
                 displayError("There was an error in the request for the session ID")
                 return
             }
-            print("data------?", data)
             
             guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode <= 299 else {
                 displayError("Your request returned a status code other than 2xx!")
@@ -258,7 +257,6 @@ class LoginViewController: UIViewController {
                 return
             }
             
-            print("session JSON", parsedData)
             
             /* 6. Use the data! */
             guard let sessionId = parsedData["session_id"] as? String else {
@@ -266,7 +264,7 @@ class LoginViewController: UIViewController {
                 return
             }
             
-            print("sessionID got", sessionId)
+            print("sessionID got")
             self.appDelegate.sessionID = sessionId
             self.getUserID(sessionId)
             
@@ -279,19 +277,62 @@ class LoginViewController: UIViewController {
         /* TASK: Get the user's ID, then store it (appDelegate.userID) for future use and go to next view! */
 
         /* 1. Set the parameters */
-        
+        let methodParameters = [
+            "api_key": Constants.TMDBParameterValues.ApiKey,
+            "session_id": sessionID
+        ]
         /* 2/3. Build the URL, Configure the request */
+        let request = NSURLRequest(URL: appDelegate.tmdbURLFromParameters(methodParameters, withPathExtension: "/account"))
 
         /* 4. Make the request */
-//        let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, rsponse, error) in
-        
+        let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, response, error) in
+            
+            // if an error occurs, print it and re-enable the UI
+            func displayError(error: String) {
+                print(error)
+                performUIUpdatesOnMain {
+                    self.setUIEnabled(true)
+                    self.debugTextLabel.text = "Login Failed (Authenticate Token)."
+                }
+            }
+            
+            guard error == nil else {
+                displayError("There was an error getting the response for the user ID")
+                return
+            }
+            
+            guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode <= 299 else {
+                displayError("The status code to get the user ID was not 2xx!")
+                return
+            }
+            
+            guard let data = data else {
+                displayError("There was no data returned from getting the user ID")
+                return
+            }
+            
             /* 5. Parse the data */
+            var parsedData: AnyObject!
+            do {
+                parsedData = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
+            } catch {
+                displayError("Could not parse the JSON data returned from the authentication stage of the login")
+                return
+            }
             
             /* 6. Use the data! */
+            guard let userId = parsedData["id"] as? Int else {
+                displayError("The return data did not contain a user ID: \(parsedData)")
+                return
+            }
             
-//        }
+            print("User id got!")
+            self.appDelegate.userID = userId
+            self.completeLogin()
+            
+        }
         /* 7. Start the request */
-//        task.resume()
+        task.resume()
     }
 }
 
